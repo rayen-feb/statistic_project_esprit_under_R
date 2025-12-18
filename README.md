@@ -1,128 +1,97 @@
-# 🏃 VO2 Estimation Project Using Multiple Linear Regression
+# 🧬 Health-Related Physical Fitness (HRPF) Estimation Project
 
 ![R](https://img.shields.io/badge/R-4.3-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
-![Data](https://img.shields.io/badge/Dataset-2000%20participants-orange)
-![Model](https://img.shields.io/badge/Model-Multiple%20Linear%20Regression-red)
+![Project Type](https://img.shields.io/badge/Project-Static-orange)
+![Data](https://img.shields.io/badge/Dataset-2000%20participants-red)
 
 ---
 
-## 📌 Project Overview
+## 📖 Project Type
 
-This project predicts **VO2 (ml/kg/min)** in adults using **easy-to-measure fitness variables**. The workflow includes:
+This repository contains a **static data analysis project** focusing on estimating **VO2 (ml/kg/min)** in adults using multiple linear regression.  
 
-- Data cleaning & outlier treatment 🧹  
-- Data transformation & scaling 📊  
-- Correlation analysis & multicollinearity check 🔍  
-- Multiple linear regression modeling 🧮  
-- Residual diagnostics & model evaluation 📈  
+It reproduces and interprets the methodology of a scientific study on **health-related physical fitness (HRPF)** using easy-to-measure anthropometric and fitness variables.  
 
----
-
-## 🎯 Objectives
-
-- Identify key predictors of VO2  
-- Apply **statistical tests** and regression in R  
-- Assess model assumptions: normality, homoscedasticity, multicollinearity  
-- Provide insights for fitness assessment and health monitoring  
+**Reference Paper:**  
+> Example: *"Estimating Health-Related Physical Fitness in Korean Adults Using Multiple Linear Regression,"* Journal of Exercise Science, 2021.
 
 ---
 
-## 🗂 Dataset
+## 🎯 Project Goal
 
-| Variable | Description |
-|----------|-------------|
-| `participant_id` | Unique participant ID |
-| `sex` | Gender (M/F) |
-| `age` | Age in years |
-| `bmi` | Body Mass Index |
-| `percent_body_fat` | Body fat percentage |
-| `hand_grip_strength_kg` | Muscular strength (kg) |
-| `sit_and_reach_cm` | Flexibility (cm) |
-| `sit_ups_count` | Muscular endurance |
-| `vo2_estimate_ml_per_kg_min` | Estimated aerobic capacity |
-
-**Participants:** 2000 adults  
+- Build a **multiple linear regression model** to predict VO2 from variables like:
+  - Age
+  - BMI
+  - Percent Body Fat
+  - Hand Grip Strength
+  - Sit-and-Reach
+  - Sit-ups Count
+- Assess **gender differences** in fitness variables.
+- Detect and handle **outliers**.
+- Check assumptions: normality of residuals, homoscedasticity, multicollinearity.
 
 ---
 
-## 🛠 Methodology
+## 📊 Exploratory Data Analysis & Visualizations
 
-1. **Data Cleaning** 🧹  
-   - Outliers detected & treated with boxplots  
+### 1. Distribution of VO2
+![VO2 Histogram](plots/vo2_histogram.png)
 
-2. **Data Transformation** 🔄  
-   - Standardization & Min-Max scaling  
-   - Normality check using Shapiro-Wilk test  
+### 2. Percent Body Fat vs VO2
+![Body Fat vs VO2](plots/bodyfat_vo2_scatter.png)
 
-3. **Exploratory Analysis** 🔍  
-   - Correlation matrix analysis  
-   - Remove highly correlated predictors  
-   - VIF check for multicollinearity  
+### 3. Hand Grip Strength vs VO2
+![Hand Grip vs VO2](plots/handgrip_vo2_scatter.png)
 
-4. **Modeling** 🧮  
-   - Multiple Linear Regression using `lm()`  
-   - Dependent variable: `vo2_estimate_ml_per_kg_min`  
-   - Independent variables: `age`, `bmi`, `percent_body_fat`, `hand_grip_strength_kg`, `sit_and_reach_cm`, `sit_ups_count`  
+### 4. Correlation Matrix Heatmap
+![Correlation Heatmap](plots/corr_heatmap.png)
 
-5. **Diagnostics & Evaluation** 📈  
-   - Residual normality & Q-Q plots  
-   - Homoscedasticity: residuals vs fitted values  
-   - VIF < 2 → no significant multicollinearity  
+### 5. Residual Diagnostics
+- **Residuals vs Fitted Values**  
+![Residuals Plot](plots/residuals_fitted.png)
+
+- **Q-Q Plot of Residuals**  
+![QQ Plot](plots/qq_residuals.png)
 
 ---
 
-## 💻 R Code Highlights
+## 🧮 Statistical Methods & Analysis
 
-```r
-# Build the model
-model <- lm(vo2_estimate_ml_per_kg_min ~ age + bmi + percent_body_fat + 
-            hand_grip_strength_kg + sit_and_reach_cm + sit_ups_count, 
-            data = data_reg_scaled)
+1. **Data Preparation**
+   - Handling missing values
+   - Outlier detection using **boxplots**
+   - Scaling numeric variables (Min-Max / Standardization)
+   - Removing highly correlated variables (correlation > 0.8)
 
-# Model summary
-summary(model)
+2. **Normality Tests**
+   - Shapiro-Wilk test for all numeric variables
+   - Transformation applied if necessary
 
-# Check multicollinearity
-library(car)
-vif(model)
+3. **Multiple Linear Regression**
+   - Formula:  
+     ```
+     VO2 ~ age + bmi + percent_body_fat + hand_grip_strength_kg + sit_and_reach_cm + sit_ups_count
+     ```
+   - **VIF** checked to ensure no multicollinearity
+   - **Residual analysis** for normality & homoscedasticity
 
-# Residual diagnostics
-shapiro.test(resid(model))
-plot(fitted(model), resid(model), xlab="Fitted Values", ylab="Residuals")
+4. **Model Interpretation**
+   - Significant predictors: `age`, `percent_body_fat`, `hand_grip_strength_kg`
+   - Adjusted R²: 0.2387
+   - F-statistic: p < 2.2e-16
+   - Gender differences confirmed via t-tests
+
+---
+
+## 🔧 How to Run & Reproduce
+
+1. Clone this repo:
+```bash
+git clone https://github.com/username/HRPF_VO2_Project.git
 ```
----
-### 📈 Key Results
-
-Significant predictors of VO2: age, percent body fat, hand grip strength
-
-Sit-and-reach and sit-ups count were not significant
-
-Model explains ~24% of variance in VO2 (Adjusted R² = 0.2387)
-
-ANOVA confirms overall model significance (p < 0.001)
-
-### ⚡ Conclusions
-
-VO2 is strongly influenced by age, body fat, and muscular strength
-
-Simple fitness tests can predict aerobic capacity effectively
-
-Methodology can be applied to other populations for VO2 estimation
-
-### 🔧 Dependencies
-
-R (>= 4.0)
-
-Packages: dplyr, car, ggplot2, scales
-
-### 🔮 Future Work
-
-Explore non-linear models or machine learning algorithms for better prediction
-
-Include additional predictors (e.g., lifestyle, physical activity)
-
-Conduct cross-validation to assess model generalizability
-
-
-
+2.Install required packages:
+install.packages(c("tidyverse", "ggplot2", "car"))
+3.Load data & run analysis scripts:
+source("analysis/data_preparation.R")
+source("analysis/multi_linear_regression.R")
