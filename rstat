@@ -1,0 +1,346 @@
+
+R version 4.5.2 (2025-10-31 ucrt) -- "[Not] Part in a Rumble"
+Copyright (C) 2025 The R Foundation for Statistical Computing
+Platform: x86_64-w64-mingw32/x64
+
+R est un logiciel libre livré sans AUCUNE GARANTIE.
+Vous pouvez le redistribuer sous certaines conditions.
+Tapez 'license()' ou 'licence()' pour plus de détails.
+
+R est un projet collaboratif avec de nombreux contributeurs.
+Tapez 'contributors()' pour plus d'information et
+'citation()' pour la façon de le citer dans les publications.
+
+Tapez 'demo()' pour des démonstrations, 'help()' pour l'aide
+en ligne ou 'help.start()' pour obtenir l'aide au format HTML.
+Tapez 'q()' pour quitter R.
+
+[Sauvegarde de la session précédente restaurée]
+
+> get_summary_table <- function(df) {
++   summary_list <- lapply(df, function(x) {
++     if (is.numeric(x)) {
++       data.frame(
++         Variable = deparse(substitute(x)),
++         Min = min(x, na.rm = TRUE),
++         Q1 = quantile(x, 0.25, na.rm = TRUE),
++         Median = median(x, na.rm = TRUE),
++         Mean = mean(x, na.rm = TRUE),
++         Q3 = quantile(x, 0.75, na.rm = TRUE),
++         Max = max(x, na.rm = TRUE),
++         NAs = sum(is.na(x)),
++         row.names = NULL
++       )
++     } else if (is.factor(x) || is.character(x)) {
++       tbl <- table(x, useNA = "ifany")
++       data.frame(
++         Variable = deparse(substitute(x)),
++         Value = names(tbl),
++         Frequency = as.numeric(tbl),
++         row.names = NULL
++       )
++     }
++   })
++   
++   # Combine all numeric summaries
++   numeric_summary <- do.call(rbind, summary_list[sapply(summary_list, ncol) == 8])
++   factor_summary <- do.call(rbind, summary_list[sapply(summary_list, ncol) == 3])
++   
++   list(numeric = numeric_summary, factor = factor_summary)
++ }
+> 
+> 
+> # Load libraries
+> library(shiny)
+> library(tidyverse)
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.1.4     ✔ readr     2.1.6
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.1     ✔ tibble    3.3.0
+✔ lubridate 1.9.4     ✔ tidyr     1.3.1
+✔ purrr     1.2.0     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+> library(readxl)
+> library(corrplot)
+corrplot 0.95 loaded
+> library(car)
+Le chargement a nécessité le package : carData
+
+Attachement du package : ‘car’
+
+L'objet suivant est masqué depuis ‘package:dplyr’:
+
+    recode
+
+L'objet suivant est masqué depuis ‘package:purrr’:
+
+    some
+
+> library(cowplot)
+
+Attachement du package : ‘cowplot’
+
+L'objet suivant est masqué depuis ‘package:lubridate’:
+
+    stamp
+
+> 
+> # Load Data
+> data <- readxl::read_excel("C:/Users/araye/OneDrive/Desktop/R_PROJECT/DATA.xlsx")
+Erreur : `path` does not exist: ‘C:/Users/araye/OneDrive/Desktop/R_PROJECT/DATA.xlsx’
+> data <- data %>%
++   mutate(
++     sex = factor(sex),
++     measurement_date = as.Date(measurement_date)
++   )
+> 
+> # Clean outliers function
+> clean_outliers <- function(x) {
++   IQR_val <- IQR(x, na.rm = TRUE)
++   Q1 <- quantile(x, 0.25, na.rm = TRUE)
++   Q3 <- quantile(x, 0.75, na.rm = TRUE)
++   x[x < (Q1 - 1.5*IQR_val) | x > (Q3 + 1.5*IQR_val)] <- NA
++   return(x)
++ }
+> 
+> data_clean <- data %>%
++   mutate(across(where(is.numeric), clean_outliers))
+> 
+> # UI
+> ui <- fluidPage(
++   titlePanel("Interactive Health Fitness Analysis"),
++   
++   sidebarLayout(
++     sidebarPanel(
++       selectInput("dep_var", "Dependent Variable:",
++                   choices = names(select(data_clean, where(is.numeric))),
++                   selected = "vo2_estimate_ml_per_kg_min"),
++       
++       checkboxGroupInput("predictors", "Select Predictors:",
++                          choices = names(select(data_clean, where(is.numeric))),
++                          selected = names(select(data_clean, where(is.numeric)))[-1]),
++       
++       sliderInput("age_filter", "Age Range:",
++                   min = min(data_clean$age, na.rm = TRUE),
++                   max = max(data_clean$age, na.rm = TRUE),
++                   value = c(min(data_clean$age, na.rm = TRUE),
++                             max(data_clean$age, na.rm = TRUE))),
++       
++       sliderInput("bmi_filter", "BMI Range:",
++                   min = min(data_clean$bmi, na.rm = TRUE),
++                   max = max(data_clean$bmi, na.rm = TRUE),
++                   value = c(min(data_clean$bmi, na.rm = TRUE),
++                             max(data_clean$bmi, na.rm = TRUE))),
++       
++       selectInput("group_var", "Group By (Optional):",
++                   choices = c("None", "sex"),
++                   selected = "None"),
++       
++       hr(),
++       downloadButton("download_data", "Download Filtered Data"),
++       downloadButton("download_model", "Download Regression Summary"),
++       hr(),
++       downloadButton("download_hist", "Download Histogram PNG"),
++       downloadButton("download_corr", "Download Correlation PNG"),
++       downloadButton("download_scatter", "Download Scatterplots PNG")
++     ),
++     
++     mainPanel(
++       tabsetPanel(
++         tabPanel("Plots",
++                  plotOutput("hist_plot"),
++                  plotOutput("corr_plot"),
++                  plotOutput("scatter_plot")),
++         tabPanel("Summary", tableOutput("summary_table")),
++         tabPanel("Regression Diagnostics",
++                  verbatimTextOutput("model_summary"),
++                  plotOutput("residuals_plot"))
++       )
++     )
++   )
++ )
+> 
+> # Server
+> server <- function(input, output, session) {
++   
++   # Reactive filtered data
++   filtered_data <- reactive({
++     df <- data_clean %>%
++       filter(age >= input$age_filter[1] & age <= input$age_filter[2],
++              bmi >= input$bmi_filter[1] & bmi <= input$bmi_filter[2])
++     return(df)
++   })
++   
++   # Reactive regression model
++   model <- reactive({
++     req(input$dep_var, input$predictors)
++     df <- filtered_data() %>% select(all_of(c(input$dep_var, input$predictors)))
++     formula <- as.formula(paste(input$dep_var, "~", paste(input$predictors, collapse = "+")))
++     lm(formula, data = df)
++   })
++   
++   # Histogram of dependent variable
++   output$hist_plot <- renderPlot({
++     ggplot(filtered_data(), aes_string(input$dep_var)) +
++       geom_histogram(fill="steelblue", bins=30) +
++       theme_minimal() +
++       ggtitle(paste("Histogram of", input$dep_var))
++   })
++   
++   # Correlation plot
++   output$corr_plot <- renderPlot({
++     cor_matrix <- cor(filtered_data() %>% select(where(is.numeric)), use="pairwise.complete.obs")
++     corrplot(cor_matrix, method="color", type="upper", tl.col="black")
++   })
++   
++   # Scatterplots with regression lines
++   output$scatter_plot <- renderPlot({
++     df <- filtered_data()
++     req(nrow(df) > 0)
++     
++     plots <- lapply(input$predictors, function(var){
++       ggplot(df, aes_string(x=var, y=input$dep_var)) +
++         geom_point(aes_string(color = if(input$group_var != "None") input$group_var else NULL)) +
++         geom_smooth(method="lm", se=FALSE, color="red") +
++         theme_minimal() +
++         ggtitle(paste(input$dep_var, "vs", var))
++     })
++     
++     cowplot::plot_grid(plotlist = plots, ncol=1)
++   })
++   
++   # Summary table
++   output$summary_table <- renderTable({
++     summary(filtered_data())
++   })
++   
++   # Regression summary
++   output$model_summary <- renderPrint({
++     req(model())
++     summary(model())
++   })
++   
++   # Residual diagnostics
++   output$residuals_plot <- renderPlot({
++     req(model())
++     res <- residuals(model())
++     par(mfrow=c(1,2))
++     hist(res, main="Residuals Histogram", xlab="Residuals", col="tomato")
++     qqnorm(res); qqline(res)
++   })
++   
++   # Download filtered data CSV
++   output$download_data <- downloadHandler(
++     filename = function() { paste0("filtered_data_", Sys.Date(), ".csv") },
++     content = function(file) { write.csv(filtered_data(), file, row.names = FALSE) }
++   )
++   
++   # Download regression summary TXT
++   output$download_model <- downloadHandler(
++     filename = function() { paste0("regression_summary_", Sys.Date(), ".txt") },
++     content = function(file) {
++       sink(file)
++       print(summary(model()))
++       sink()
++     }
++   )
++   
++   # Download histogram PNG
++   output$download_hist <- downloadHandler(
++     filename = function() { paste0("histogram_", Sys.Date(), ".png") },
++     content = function(file) {
++       png(file, width=800, height=600)
++       print(
++         ggplot(filtered_data(), aes_string(input$dep_var)) +
++           geom_histogram(fill="steelblue", bins=30) +
++           theme_minimal() +
++           ggtitle(paste("Histogram of", input$dep_var))
++       )
++       dev.off()
++     }
++   )
++   
++   # Download correlation PNG
++   output$download_corr <- downloadHandler(
++     filename = function() { paste0("correlation_", Sys.Date(), ".png") },
++     content = function(file) {
++       png(file, width=800, height=600)
++       cor_matrix <- cor(filtered_data() %>% select(where(is.numeric)), use="pairwise.complete.obs")
++       corrplot(cor_matrix, method="color", type="upper", tl.col="black")
++       dev.off()
++     }
++   )
++   
++   # Download scatterplots PNG
++   output$download_scatter <- downloadHandler(
++     filename = function() { paste0("scatterplots_", Sys.Date(), ".png") },
++     content = function(file) {
++       png(file, width=1200, height=800)
++       df <- filtered_data()
++       plots <- lapply(input$predictors, function(var){
++         ggplot(df, aes_string(x=var, y=input$dep_var)) +
++           geom_point(aes_string(color = if(input$group_var != "None") input$group_var else NULL)) +
++           geom_smooth(method="lm", se=FALSE, color="red") +
++           theme_minimal() +
++           ggtitle(paste(input$dep_var, "vs", var))
++       })
++       cowplot::plot_grid(plotlist = plots, ncol=1)
++       dev.off()
++     }
++   )
++ }
+> 
+> # Run the app
+> shinyApp(ui, server)
+
+Listening on http://127.0.0.1:3041
+Avis : `aes_string()` was deprecated in ggplot2 3.0.0.
+ℹ Please use tidy evaluation idioms with `aes()`.
+ℹ See also `vignette("ggplot2-in-packages")` for more information.
+This warning is displayed once every 8 hours.
+Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+generated.
+Avis : Removed 12 rows containing non-finite outside the scale range (`stat_bin()`).
+`geom_smooth()` using formula = 'y ~ x'
+Avis : Removed 12 rows containing non-finite outside the scale range
+(`stat_smooth()`).
+Avis : Removed 12 rows containing missing values or values outside the scale range
+(`geom_point()`).
+`geom_smooth()` using formula = 'y ~ x'
+Avis : Removed 12 rows containing non-finite outside the scale range
+(`stat_smooth()`).
+Avis : Removed 12 rows containing missing values or values outside the scale range
+(`geom_point()`).
+`geom_smooth()` using formula = 'y ~ x'
+Avis : Removed 24 rows containing non-finite outside the scale range
+(`stat_smooth()`).
+Avis : Removed 24 rows containing missing values or values outside the scale range
+(`geom_point()`).
+`geom_smooth()` using formula = 'y ~ x'
+Avis : Removed 13 rows containing non-finite outside the scale range
+(`stat_smooth()`).
+Avis : Removed 13 rows containing missing values or values outside the scale range
+(`geom_point()`).
+`geom_smooth()` using formula = 'y ~ x'
+Avis : Removed 29 rows containing non-finite outside the scale range
+(`stat_smooth()`).
+Avis : Removed 29 rows containing missing values or values outside the scale range
+(`geom_point()`).
+`geom_smooth()` using formula = 'y ~ x'
+Avis : Removed 58 rows containing non-finite outside the scale range
+(`stat_smooth()`).
+Avis : Removed 58 rows containing missing values or values outside the scale range
+(`geom_point()`).
+`geom_smooth()` using formula = 'y ~ x'
+Avis : Removed 12 rows containing non-finite outside the scale range
+(`stat_smooth()`).
+Avis : Removed 12 rows containing missing values or values outside the scale range
+(`geom_point()`).
+Avis dans model.matrix.default(mt, mf, contrasts) :
+  la réponse est apparue dans le membre de droite et y a été éliminée
+Avis dans model.matrix.default(mt, mf, contrasts) :
+  problème avec le terme 7 dans model.matrix : aucune colonne n'est assignée
+
